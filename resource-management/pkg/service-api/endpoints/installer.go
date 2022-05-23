@@ -6,6 +6,7 @@ import (
 	"k8s.io/klog/v2"
 	"net/http"
 
+	restful "github.com/emicklei/go-restful"
 	"global-resource-service/resource-management/pkg/common-lib/types"
 	"global-resource-service/resource-management/pkg/common-lib/types/event"
 	"global-resource-service/resource-management/pkg/distributor"
@@ -143,4 +144,9 @@ func getResourceVersionsMap(req *http.Request) (types.ResourceVersionMap, error)
 	}
 
 	return wr.ResourceVersions, nil
+}
+func restfulGetResource(r rest.Getter, e rest.Exporter, scope handlers.RequestScope) restful.RouteFunction {
+	return func(req *restful.Request, res *restful.Response) {
+		handlers.GetResource(r, e, &scope)(res.ResponseWriter, req.Request)
+	}
 }
