@@ -21,76 +21,15 @@ import (
 // transformObject takes the object as returned by storage and ensures it is in
 // the client's desired form, as well as ensuring any API level fields like self-link
 // are properly set.
-func transformObject(ctx context.Context, obj runtime.Object, opts interface{}, mediaType negotiation.MediaTypeOptions, scope *RequestScope, req *http.Request) (runtime.Object, error) {
-	if co, ok := obj.(runtime.CacheableObject); ok {
-		if mediaType.Convert != nil {
-			// Non-nil mediaType.Convert means that some conversion of the object
-			// has to happen. Currently conversion may potentially modify the
-			// object or assume something about it (e.g. asTable operates on
-			// reflection, which won't work for any wrapper).
-			// To ensure it will work correctly, let's operate on base objects
-			// and not cache it for now.
-			//
-			// TODO: Long-term, transformObject should be changed so that it
-			// implements runtime.Encoder interface.
-			return doTransformObject(ctx, co.GetObject(), opts, mediaType, scope, req)
-		}
-	}
-	return doTransformObject(ctx, obj, opts, mediaType, scope, req)
+func transformObject(ctx context.Context, nodes types.LogicalNode, opts interface{}, scope *RequestScope, req *http.Request) (types.LogicalNode, error) {
+	return doTransformObject(ctx, nodes, opts, scope, req)
 }
 
-func doTransformObject(ctx context.Context, obj runtime.Object, opts interface{}, mediaType negotiation.MediaTypeOptions, scope *RequestScope, req *http.Request) (runtime.Object, error) {
-	if _, ok := obj.(*metav1.Status); ok {
-		return obj, nil
-	}
-	if err := setObjectSelfLink(ctx, obj, req, scope.Namer); err != nil {
+func doTransformObject(ctx context.Context, nodes types.LogicalNode, opts interface{}, scope *RequestScope, req *http.Request) (types.LogicalNode, error) {
+	if err := setObjectSelfLink(ctx, nodes, req, scope.Namer); err != nil {
 		return nil, err
 	}
-
-	switch target := mediaType.Convert; {
-	case target == nil:
-		return obj, nil
-
-	case target.Kind == "PartialObjectMetadata":
-		return asPartialObjectMetadata(obj, target.GroupVersion())
-
-	case target.Kind == "PartialObjectMetadataList":
-		return asPartialObjectMetadataList(obj, target.GroupVersion())
-
-	case target.Kind == "Table":
-		options, ok := opts.(*metav1.TableOptions)
-		if !ok {
-			return nil, fmt.Errorf("unexpected TableOptions, got %T", opts)
-		}
-		return asTable(ctx, obj, options, scope, target.GroupVersion())
-
-	default:
-		accepted, _ := negotiation.MediaTypesForSerializer(metainternalversionscheme.Codecs)
-		err := negotiation.NewNotAcceptableError(accepted)
-		return nil, err
-	}
-}
-
-// optionsForTransform will load and validate any additional query parameter options for
-// a conversion or return an error.
-func optionsForTransform(mediaType negotiation.MediaTypeOptions, req *http.Request) (interface{}, error) {
-	switch target := mediaType.Convert; {
-	case target == nil:
-	case target.Kind == "Table" && (target.GroupVersion() == metav1beta1.SchemeGroupVersion || target.GroupVersion() == metav1.SchemeGroupVersion):
-		opts := &metav1.TableOptions{}
-		if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, opts); err != nil {
-			return nil, err
-		}
-		switch errs := validation.ValidateTableOptions(opts); len(errs) {
-		case 0:
-			return opts, nil
-		case 1:
-			return nil, errors.NewBadRequest(fmt.Sprintf("Unable to convert to Table as requested: %v", errs[0].Error()))
-		default:
-			return nil, errors.NewBadRequest(fmt.Sprintf("Unable to convert to Table as requested: %v", errs))
-		}
-	}
-	return nil, nil
+	return asPartialObjectMetadataList(obj, target.GroupVersion())
 }
 
 // targetEncodingForTransform returns the appropriate serializer for the input media type
@@ -106,12 +45,7 @@ func targetEncodingForTransform(scope *RequestScope, mediaType negotiation.Media
 
 // transformResponseObject takes an object loaded from storage and performs any necessary transformations.
 // Will write the complete response object.
-func transformResponseObject(ctx context.Context, scope *RequestScope, req *http.Request, w http.ResponseWriter, statusCode int, result types.LogicalNode) {
-	options, err := optionsForTransform(mediaType, req)
-	if err != nil {
-		scope.err(err, w, req)
-		return
-	}
+func transformResponseObject(ctx context.Context, scope *RequestScope, req *http.Request, w http.ResponseWriter, statusCode int, result types.LogicalNode) 
 	obj, err := transformObject(ctx, result, options, mediaType, scope, req)
 	if err != nil {
 		scope.err(err, w, req)
@@ -186,74 +120,29 @@ func asTable(ctx context.Context, result runtime.Object, opts *metav1.TableOptio
 	return table, nil
 }
 
-func asPartialObjectMetadata(result runtime.Object, groupVersion schema.GroupVersion) (runtime.Object, error) {
-	if meta.IsListType(result) {
-		err := newNotAcceptableError(fmt.Sprintf("you requested PartialObjectMetadata, but the requested object is a list (%T)", result))
-		return nil, err
-	}
-	switch groupVersion {
-	case metav1beta1.SchemeGroupVersion, metav1.SchemeGroupVersion:
-	default:
-		return nil, newNotAcceptableError(fmt.Sprintf("no PartialObjectMetadataList exists in group version %s", groupVersion))
-	}
-	m, err := meta.Accessor(result)
-	if err != nil {
-		return nil, err
-	}
+func asPartialObjectMetadata(result types.LogicalNode) (types.LogicalNode, error) {
 	partial := meta.AsPartialObjectMetadata(m)
 	partial.GetObjectKind().SetGroupVersionKind(groupVersion.WithKind("PartialObjectMetadata"))
 	return partial, nil
 }
 
-func asPartialObjectMetadataList(result runtime.Object, groupVersion schema.GroupVersion) (runtime.Object, error) {
-	li, ok := result.(metav1.ListInterface)
-	if !ok {
-		return nil, newNotAcceptableError(fmt.Sprintf("you requested PartialObjectMetadataList, but the requested object is not a list (%T)", result))
-	}
-
-	gvk := groupVersion.WithKind("PartialObjectMetadata")
-	switch {
-	case groupVersion == metav1beta1.SchemeGroupVersion:
-		list := &metav1beta1.PartialObjectMetadataList{}
-		err := meta.EachListItem(result, func(obj runtime.Object) error {
-			m, err := meta.Accessor(obj)
-			if err != nil {
-				return err
-			}
-			partial := meta.AsPartialObjectMetadata(m)
-			partial.GetObjectKind().SetGroupVersionKind(gvk)
-			list.Items = append(list.Items, *partial)
-			return nil
-		})
+func asPartialObjectMetadataList(result types.LogicalNode) (types.LogicalNode, error) {
+	list := &types.PartialObjectMetadataList{}
+	err := meta.EachListItem(result, func(obj runtime.Object) error {
+		m, err := meta.Accessor(obj)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		list.SelfLink = li.GetSelfLink()
-		list.ResourceVersion = li.GetResourceVersion()
-		list.Continue = li.GetContinue()
-		return list, nil
-
-	case groupVersion == metav1.SchemeGroupVersion:
-		list := &metav1.PartialObjectMetadataList{}
-		err := meta.EachListItem(result, func(obj runtime.Object) error {
-			m, err := meta.Accessor(obj)
-			if err != nil {
-				return err
-			}
-			partial := meta.AsPartialObjectMetadata(m)
-			partial.GetObjectKind().SetGroupVersionKind(gvk)
-			list.Items = append(list.Items, *partial)
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		list.SelfLink = li.GetSelfLink()
-		list.ResourceVersion = li.GetResourceVersion()
-		list.Continue = li.GetContinue()
-		return list, nil
-
-	default:
-		return nil, newNotAcceptableError(fmt.Sprintf("no PartialObjectMetadataList exists in group version %s", groupVersion))
+		partial := meta.AsPartialObjectMetadata(m)
+		partial.GetObjectKind().SetGroupVersionKind(gvk)
+		list.Items = append(list.Items, *partial)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	list.SelfLink = li.GetSelfLink()
+	list.ResourceVersion = li.GetResourceVersion()
+	list.Continue = li.GetContinue()
+	return list, nil
 }
