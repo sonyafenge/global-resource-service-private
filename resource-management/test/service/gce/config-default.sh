@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+# gcloud multiplexing for shared GCE/GKE tests.
+KUBE_ROOT=$(dirname "${BASH_SOURCE}")/../../..
+
+#Default GCE config
+GCLOUD=gcloud
+ZONE=${SERVICE_GCE_ZONE:-us-central1-b}
+REGION=${ZONE%-*}
+RELEASE_REGION_FALLBACK=${RELEASE_REGION_FALLBACK:-false}
+REGIONAL_KUBE_ADDONS=${REGIONAL_KUBE_ADDONS:-true}
+
+NETWORK=${SERVER_GCE_NETWORK:-default}
+CREATE_CUSTOM_NETWORK=${CREATE_CUSTOM_NETWORK:-false}
+# Enable network deletion by default, unless we're using 'default' network.
+if [[ "${NETWORK}" == "default" ]]; then
+  SERVER_DELETE_NETWORK=${SERVER_DELETE_NETWORK:-false}
+else
+  SERVER_DELETE_NETWORK=${SERVER_DELETE_NETWORK:-true}
+fi
+if [[ "${CREATE_CUSTOM_NETWORK}" == true ]]; then
+  SUBNETWORK="${SUBNETWORK:-${NETWORK}-custom-subnet}"
+fi
+
+
+#common config
+INSTANCE_PREFIX="${SERVER_INSTANCE_PREFIX:-grs}"
+SERVER_NAME="${INSTANCE_PREFIX}-server"
+SIM_NAME="${INSTANCE_PREFIX}-sim"
+GCI_VERSION="ubuntu-2004-focal-v20211202"
+GCE_PROJECT="ubuntu-os-cloud"
+GCE_IMAGE="ubuntu-2004-focal-v20211202"
+
+#Region simulator config
+SIM_SIZE=${SIM_SIZE:-n1-standard-8}
+NUM_SIMS=${NUM_SIMS:-5}
+SIM_DISK_TYPE=pd-standard
+SIM_DISK_SIZE=${SIM_DISK_SIZE:-"100GB"}
+SIM_OS_DISTRIBUTION=${SIM_OS_DISTRIBUTION:-gci}
+SIM_LOG_LEVEL=${SIM_LOG_LEVEL:-"--v=2"}
+SIM_REGION_NAME=${SIM_REGION_NAME:-"Beijing"}
+SIM_RP_NUM=${SIM_RP_NUM:-10}
+SIM_NODES_PER_RP=${SIM_NODES_PER_RP:-20000}
+GCE_SIM_PROJECT=${GCE_PROJECT:-"ubuntu-os-cloud"}
+GCE_SIM_IMAGE=${GCE_IMAGE:-"ubuntu-2004-focal-v20211202"}
+
+#Resource manager server config
+SERVER_SIZE=${SERVER_SIZE:-n1-standard-8}
+SERVER_DISK_TYPE=pd-ssd
+SERVER_DISK_SIZE=${SERVER_DISK_SIZE:-"100GB"}
+SERVER_OS_DISTRIBUTION=${SERVER_OS_DISTRIBUTION:-gci}
+SERVER_LOG_LEVEL=${SERVER_LOG_LEVEL:-"--v=2"}
+GCE_SERVER_PROJECT=${GCE_PROJECT:-"ubuntu-os-cloud"}
+GCE_SERVER_IMAGE=${GCE_IMAGE:-"ubuntu-2004-focal-v20211202"}
+  
