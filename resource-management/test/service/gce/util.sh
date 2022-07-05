@@ -404,11 +404,9 @@ function create-static-ip() {
   done
 }
 
-# Instantiate a kubernetes cluster
+# Instantiate resource management service
 #
-# Assumed vars
-#   KUBE_ROOT
-#   <Various vars set in config file>
+
 function service-up() {
   ensure-temp-dir
   detect-project
@@ -428,11 +426,137 @@ function service-up() {
     #create-linux-nodes
 }
 
+# tear done resource management service
+
+function service-down() {
+  detect-project
+
+  echo "Bringing down resource management service"
+  set +e  # Do not stop on error
+  
+  # Get the name of the managed instance group template and delete
+  local templates=$(get-template "${PROJECT}")
+
+  local all_instance_groups=(${INSTANCE_GROUPS[@]:-})
+  for group in ${all_instance_groups[@]:-}; do
+    {
+      if gcloud compute instance-groups managed describe "${group}" --project "${PROJECT}" --zone "${ZONE}" &>/dev/null; then
+        gcloud compute instance-groups managed delete \
+          --project "${PROJECT}" \
+          --quiet \
+          --zone "${ZONE}" \
+          "${group}"
+      fi
+    } &
+  done
+
+  wait-for-jobs || {
+      echo -e "Failed to delete instance template(s)." >&2
+    }
+
+
+  # Check if this are any remaining server replicas.
+  local REMAINING_SERVER_COUNT=0
+#: <<'EOF'
+  REMAINING_SERVER_COUNT=$(gcloud compute instances list \
+    --project "${PROJECT}" \
+    --filter="name ~ '$(get-replica-name-regexp)'" \
+    --format "value(zone)" | wc -l)
+
+  # In the replicated scenario, if there's only a single master left, we should also delete load balancer in front of it.
+  if [[ "${REMAINING_SERVER_COUNT}" -ge 1 ]]; then
+    local instance_names=$(get-all-replica-names)
+
+    for instance_name in ${instance_names[@]:-}; do
+    {
+      if gcloud compute instances describe "${instance_name}" --zone "${ZONE}" --project "${PROJECT}" &>/dev/null; then
+        gcloud compute instances delete \
+          --project "${PROJECT}" \
+          --zone "${ZONE}" \
+          --quiet \
+          "${instance_name}"
+      fi
+    }
+    done
+    
+    wait-for-jobs || {
+      echo -e "Failed to delete server(s)." >&2
+    }
+  fi
+#EOF
+
+  REMAINING_SERVER_COUNT=$(gcloud compute instances list \
+    --project "${PROJECT}" \
+    --filter="name ~ '$(get-replica-name-regexp)'" \
+    --format "value(zone)" | wc -l)
+
+  # If there are no more remaining master replicas, we should delete all remaining network resources.
+  if [[ "${REMAINING_SERVER_COUNT}" -eq 0 ]]; then
+    # Delete firewall rule for the srevice.
+    # delete-firewall-rules "${MASTER_NAME}-https" "${MASTER_NAME}-etcd" "${NODE_TAG}-all" "${MASTER_NAME}-konnectivity-server"
+    
+    # Delete the server's reserved IP
+    if gcloud compute addresses describe "${SERVER_NAME}-ip" --region "${REGION}" --project "${PROJECT}" &>/dev/null; then
+      echo "Deleting the server's reserved IP"
+      gcloud compute addresses delete \
+        --project "${PROJECT}" \
+        --region "${REGION}" \
+        --quiet \
+        "${SERVER_NAME}-ip"
+    fi
+
+    # Delete the server's pd
+    if gcloud compute disks describe "${SERVER_NAME}-pd" --zone "${ZONE}" --project "${PROJECT}" &>/dev/null; then
+      echo "Deleting the server's pd"
+      gcloud compute disks delete \
+        --project "${PROJECT}" \
+        --zone "${ZONE}" \
+        --quiet \
+        "${SERVER_NAME}-pd"
+    fi
+  fi
+
+  set -e
+}
+
+# Prints regexp for full master machine name. In a cluster with replicated master,
+# VM names may either be MASTER_NAME or MASTER_NAME with a suffix for a replica.
+function get-replica-name-regexp() {
+  echo "^${SERVER_NAME}(-...)?"
+}
+
+# Prints comma-separated names of all of the master replicas in all zones.
+#
+# Assumed vars:
+#   PROJECT
+#   MASTER_NAME
+#
+# NOTE: Must be in sync with get-replica-name-regexp and set-replica-name.
+function get-all-replica-names() {
+  echo $(gcloud compute instances list \
+    --project "${PROJECT}" \
+    --filter="name ~ '$(get-replica-name-regexp)'" \
+    --format "value(name)" | tr "\n" "," | sed 's/,$//')
+}
+
+# Gets the instance templates in use by the service. It echos the template names
+# so that the function output can be used.
+
+function get-template() {
+  local linux_filter="${SIM_INSTANCE_PREFIX}-(extra-)?template(-)?"
+  
+  gcloud compute instance-templates list \
+    --filter="name ~ '${linux_filter}'" \
+    --project="${1}" --format='value(name)'
+}
+
 function create-resourcemanagement-server() {
   echo "Starting rersource management server"
   
   # We have to make sure the disk is created before creating the master VM, so
   # run this in the foreground.
+
+  echo "Debugging: gcloud compute disks create ${SERVER_NAME}-pd --project ${PROJECT} --zone ${ZONE} --type ${SERVER_DISK_TYPE} --size ${SERVER_DISK_SIZE}"
   gcloud compute disks create "${SERVER_NAME}-pd" \
     --project "${PROJECT}" \
     --zone "${ZONE}" \
@@ -454,4 +578,97 @@ function create-region-simulator() {
   echo "Starting region simulatotrs"
     #create-nodes-template
     #create-linux-nodes
+}
+
+# Quote something appropriate for a yaml string.
+#
+# TODO(zmerlynn): Note that this function doesn't so much "quote" as
+# "strip out quotes", and we really should be using a YAML library for
+# this, but PyYAML isn't shipped by default, and *rant rant rant ... SIGH*
+function yaml-quote {
+  echo "'$(echo "${@:-}" | sed -e "s/'/''/g")'"
+}
+
+function write-server-env {
+  build-server-env "server" "${SERVICE_TEMP}/server-env.yaml"
+}
+
+function write-sim-env {
+  build-server-env "sim" "${SERVICE_TEMP}/server-env.yaml"
+}
+
+function build-server-env {
+  local server="$1"
+  local file="$2"
+
+  rm -f ${file}
+  cat >$file <<EOF
+INSTANCE_PREFIX: $(yaml-quote ${INSTANCE_PREFIX})
+EOF
+
+  if [[ "${server}" == "server" ]]; then
+    cat >>$file <<EOF
+SERVER_NAME: $(yaml-quote ${SERVER_NAME})
+EOF
+  fi
+
+  if [[ "${server}" == "sim" ]]; then
+    cat >>$file <<EOF
+SIM_INSTANCE_PREFIX: $(yaml-quote ${SIM_INSTANCE_PREFIX})
+EOF
+  fi
+}
+
+
+# Format the string argument for gcloud network.
+function make-gcloud-network-argument() {
+  local network_project="$1"
+  local region="$2"
+  local network="$3"
+  local subnet="$4"
+  local address="$5"          # optional
+  local enable_ip_alias="$6"  # optional
+  local alias_size="$7"       # optional
+
+  local networkURL="projects/${network_project}/global/networks/${network}"
+  local subnetURL="projects/${network_project}/regions/${region}/subnetworks/${subnet:-}"
+
+  local ret=""
+
+  if [[ "${enable_ip_alias}" == 'true' ]]; then
+    ret="--network-interface"
+    ret="${ret} network=${networkURL}"
+    if [[ "${address:-}" == "no-address" ]]; then
+      ret="${ret},no-address"
+    else
+      ret="${ret},address=${address:-}"
+    fi
+    ret="${ret},subnet=${subnetURL}"
+    ret="${ret},aliases=pods-default:${alias_size}"
+    ret="${ret} --no-can-ip-forward"
+  else
+    if [[ -n ${subnet:-} ]]; then
+      ret="${ret} --subnet ${subnetURL}"
+    else
+      ret="${ret} --network ${networkURL}"
+    fi
+
+    ret="${ret} --can-ip-forward"
+    if [[ -n ${address:-} ]] && [[ "$address" != "no-address" ]]; then
+      ret="${ret} --address ${address}"
+    fi
+  fi
+
+  echo "${ret}"
+}
+
+# Wait for background jobs to finish. Return with
+# an error status if any of the jobs failed.
+function wait-for-jobs() {
+  local fail=0
+  local job
+  for job in $(jobs -p); do
+    wait "${job}" || fail=$((fail + 1))
+  done
+  return ${fail}
 }

@@ -16,7 +16,7 @@ function create-server-instance {
   [[ -n ${2:-} ]] && internal_address="${2}"
 
   write-server-env
-  ensure-gci-metadata-files
+  #ensure-gci-metadata-files
   create-server-instance-internal "${SERVER_NAME}" "${address}" "${internal_address}"
 }
 
@@ -31,9 +31,9 @@ function create-server-instance-internal() {
 
   local network=$(make-gcloud-network-argument \
     "${NETWORK_PROJECT}" "${REGION}" "${NETWORK}" "${SUBNETWORK:-}" \
-    "${address:-}")
+    "${address:-}" "${ENABLE_IP_ALIASES:-}" "${IP_ALIAS_SIZE:-}")
 
-  #local metadata="kube-env=${KUBE_TEMP}/master-kube-env.yaml"
+  local metadata="server-env=${SERVICE_TEMP}/server-env.yaml"
   #metadata="${metadata},kubelet-config=${KUBE_TEMP}/master-kubelet-config.yaml"
   #metadata="${metadata},user-data=${KUBE_ROOT}/cluster/gce/gci/master.yaml"
   #metadata="${metadata},configure-sh=${KUBE_ROOT}/cluster/gce/gci/configure.sh"
@@ -46,20 +46,20 @@ function create-server-instance-internal() {
   disk="${disk},auto-delete=no"
 
   for attempt in $(seq 1 ${retries}); do
+    echo "gcloud compute instances create ${server_name} --project ${PROJECT} --zone ${ZONE} --machine-type ${SERVER_SIZE} --image-project=${GCE_SERVER_PROJECT}  --image ${GCE_SERVER_IMAGE} --tags ${SERVER_TAG} --scopes storage-ro,compute-rw,monitoring,logging-write --disk ${disk} --boot-disk-size ${SERVER_ROOT_DISK_SIZE} ${network}"
     if result=$(${gcloud} compute instances create "${server_name}" \
       --project "${PROJECT}" \
       --zone "${ZONE}" \
       --machine-type "${SERVER_SIZE}" \
-      --image-project="${SERVER_IMAGE_PROJECT}" \
-      --image "${SERVER_IMAGE}" \
+      --image-project="${GCE_SERVER_PROJECT}" \
+      --image "${GCE_SERVER_IMAGE}" \
       --tags "${SERVER_TAG}" \
       --scopes "storage-ro,compute-rw,monitoring,logging-write" \
-      #--metadata-from-file "${metadata}" \
+      --metadata-from-file "${metadata}" \
       --disk "${disk}" \
       --boot-disk-size "${SERVER_ROOT_DISK_SIZE}" \
-      #${MASTER_MIN_CPU_ARCHITECTURE:+"--min-cpu-platform=${MASTER_MIN_CPU_ARCHITECTURE}"} \
-      #${preemptible_master} \
-      ${network} 2>&1); then
+      ${network} \
+      2>&1); then
       echo "${result}" >&2
 
       return 0
