@@ -34,9 +34,8 @@ function create-server-instance-internal() {
     "${address:-}" "${ENABLE_IP_ALIASES:-}" "${IP_ALIAS_SIZE:-}")
 
   local metadata="server-env=${SERVICE_TEMP}/server-env.yaml"
-  #metadata="${metadata},kubelet-config=${KUBE_TEMP}/master-kubelet-config.yaml"
-  #metadata="${metadata},user-data=${KUBE_ROOT}/cluster/gce/gci/master.yaml"
-  #metadata="${metadata},configure-sh=${KUBE_ROOT}/cluster/gce/gci/configure.sh"
+  metadata="${metadata},user-data=${SERVICE_ROOT}/test/service/gce/server.yaml"
+  metadata="${metadata},configure-sh=${SERVICE_ROOT}/test/service/gce/configure.sh"
   #metadata="${metadata},${MASTER_EXTRA_METADATA}"
 
   local disk="name=${server_name}-pd"

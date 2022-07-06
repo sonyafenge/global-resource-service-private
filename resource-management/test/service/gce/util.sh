@@ -590,6 +590,7 @@ function yaml-quote {
 }
 
 function write-server-env {
+  echo "Debugging: write-server-env"
   build-server-env "server" "${SERVICE_TEMP}/server-env.yaml"
 }
 
@@ -601,9 +602,12 @@ function build-server-env {
   local server="$1"
   local file="$2"
 
+  echo "Debugging: build-server-env! $file"
   rm -f ${file}
   cat >$file <<EOF
-INSTANCE_PREFIX: $(yaml-quote ${INSTANCE_PREFIX})
+INSTANCE_PREFIX:  $(yaml-quote ${INSTANCE_PREFIX:-})
+GOLANG_VERSION:   $(yaml-quote ${GOLANG_VERSION:-})
+REDIS_VERSION:    $(yaml-quote ${REDIS_VERSION:-})
 EOF
 
   if [[ "${server}" == "server" ]]; then
@@ -614,7 +618,7 @@ EOF
 
   if [[ "${server}" == "sim" ]]; then
     cat >>$file <<EOF
-SIM_INSTANCE_PREFIX: $(yaml-quote ${SIM_INSTANCE_PREFIX})
+SIM_INSTANCE_PREFIX:  $(yaml-quote ${SIM_INSTANCE_PREFIX})
 EOF
   fi
 }
