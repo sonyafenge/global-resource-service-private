@@ -5,11 +5,12 @@
 # Use the config file specified in $SERVICE_CONFIG_FILE, or default to
 # config-default.sh.
 
-SERVICE_ROOT=$(dirname "${BASH_SOURCE[0]}")/../../..
-source "${SERVICE_ROOT}/test/service/gce/${KUBE_CONFIG_FILE-"config-default.sh"}"
+GRS_ROOT=$(dirname "${BASH_SOURCE[0]}")/../..
 
-source "${SERVICE_ROOT}/test/service/gce/region-simulator-helper.sh"
-source "${SERVICE_ROOT}/test/service/gce/server-helper.sh"
+
+source "${GRS_ROOT}/grs/gce/${GRS_CONFIG_FILE-"config-default.sh"}"
+
+source "${GRS_ROOT}/grs/gce/server-helper.sh"
 
 # These prefixes must not be prefixes of each other, so that they can be used to
 # detect mutually exclusive sets of nodes.
@@ -53,7 +54,7 @@ function verify-prereqs() {
 # Update or verify required gcloud components are installed
 # at minimum required version.
 # Assumed vars
-#   KUBE_PROMPT_FOR_UPDATE
+#   PROMPT_FOR_UPDATE
 function update-or-verify-gcloud() {
   local sudo_prefix=""
   if [ ! -w $(dirname `which gcloud`) ]; then
@@ -120,18 +121,6 @@ function detect-project() {
   fi
 }
 
-# Use gsutil to get the md5 hash for a particular tar
-function gsutil_get_tar_md5() {
-  # location_tar could be local or in the cloud
-  # local tar_location example ./_output/release-tars/kubernetes-server-linux-amd64.tar.gz
-  # cloud tar_location example gs://kubernetes-staging-PROJECT/kubernetes-devel/kubernetes-server-linux-amd64.tar.gz
-  local -r tar_location=$1
-  #parse the output and return the md5 hash
-  #the sed command at the end removes whitespace
-  local -r tar_md5=$(gsutil hash -h -m ${tar_location} 2>/dev/null | grep "Hash (md5):" | awk -F ':' '{print $2}' | sed 's/^[[:space:]]*//g')
-  echo "${tar_md5}"
-}
-
 # Example:  trap_add 'echo "in trap DEBUG"' DEBUG
 # See: http://stackoverflow.com/questions/3338030/multiple-bash-traps-for-the-same-signal
 function trap_add() {
@@ -169,7 +158,7 @@ cleanup-temp-dir() {
 # Create a temp dir that'll be deleted at the end of this bash session.
 #
 # Vars set:
-#   KUBE_TEMP
+#   SERVICE_TEMP
 function ensure-temp-dir() {
   if [[ -z ${SERVICE_TEMP-} ]]; then
     SERVICE_TEMP=$(mktemp -d 2>/dev/null || mktemp -d -t grs.XXXXXX)
@@ -203,91 +192,6 @@ function detect-sim-names() {
 
   echo "INSTANCE_GROUPS=${INSTANCE_GROUPS[*]:-}" >&2
   echo "SIM_NAMES=${SIM_NAMES[*]:-}" >&2
-}
-
-
-# Checks if there are any present resources related service.
-#
-# Assumed vars:
-#   SERVER_NAME
-#   SIM_INSTANCE_PREFIX
-#   ZONE
-#   REGION
-# Vars set:
-#   SERVICE_RESOURCE_FOUND
-function check-resources() {
-  detect-project
-  detect-sim-names
-
-  echo "Looking for already existing resources"
-  SERVICE_RESOURCE_FOUND=""
-
-  if [[ -n "${INSTANCE_GROUPS[@]:-}" ]]; then
-    SERVICE_RESOURCE_FOUND="Managed instance groups ${INSTANCE_GROUPS[@]}"
-    return 1
-  fi
-
-  if gcloud compute instance-templates describe --project "${PROJECT}" "${SIM_INSTANCE_PREFIX}-template" &>/dev/null; then
-    SERVICE_RESOURCE_FOUND="Instance template ${SIM_INSTANCE_PREFIX}-template"
-    return 1
-  fi
-
-  if gcloud compute instances describe --project "${PROJECT}" "${SERVER_NAME}" --zone "${ZONE}" &>/dev/null; then
-    SERVICE_RESOURCE_FOUND="Resource management server ${SERVER_NAME}"
-    return 1
-  fi
-
-  if gcloud compute disks describe --project "${PROJECT}" "${SERVER_NAME}"-pd --zone "${ZONE}" &>/dev/null; then
-    SERVICE_RESOURCE_FOUND="Persistent disk ${SERVER_NAME}-pd"
-    return 1
-  fi
-
-  # Find out what sim_groups are running.
-  local -a sim_groups
-  sim_groups=( $(gcloud compute instances list \
-                --project "${PROJECT}" \
-                --filter="(name ~ '${SIM_INSTANCE_PREFIX}-.+' AND zone:(${ZONE})" \
-                --format='value(name)') )
-  if (( "${#sim_groups[@]}" > 0 )); then
-    SERVICE_RESOURCE_FOUND="${#sim_groups[@]} matching ${SIM_INSTANCE_PREFIX}-.+"
-    return 1
-  fi
-
-  if gcloud compute firewall-rules describe --project "${NETWORK_PROJECT}" "${SERVER_NAME}-https" &>/dev/null; then
-    SERVICE_RESOURCE_FOUND="Firewall rules for ${SERVER_NAME}-https"
-    return 1
-  fi
-
-  if gcloud compute addresses describe --project "${PROJECT}" "${SERVER_NAME}-ip" --region "${REGION}" &>/dev/null; then
-    KUBE_RESOURCE_FOUND="Server's reserved IP"
-    return 1
-  fi
-
-  # No resources found.
-  return 0
-}
-
-function check-existing() {
-  local running_in_terminal=false
-  # May be false if tty is not allocated (for example with ssh -T).
-  if [[ -t 1 ]]; then
-    running_in_terminal=true
-  fi
-
-  if [[ ${running_in_terminal} == "true" || ${SERVICE_UP_AUTOMATIC_CLEANUP} == "true" ]]; then
-    if ! check-resources; then
-      local run_service_down="n"
-      echo "${SERVER_RESOURCE_FOUND} found." >&2
-      # Get user input only if running in terminal.
-      if [[ ${running_in_terminal} == "true" && ${SERVICE_UP_AUTOMATIC_CLEANUP} == "false" ]]; then
-        read -p "Would you like to shut down the old resources (call service-down)? [y/N] " run_service_down
-      fi
-      if [[ ${run_service_down} == "y" || ${run_service_down} == "Y" || ${SERVICE_UP_AUTOMATIC_CLEANUP} == "true" ]]; then
-        echo "... calling service-down" >&2
-        service-down
-      fi
-    fi
-  fi
 }
 
 function check-network-mode() {
@@ -375,13 +279,13 @@ function create-static-ip() {
         now="$(date +%s)"
         # Timeout set to 15 minutes
         if [[ $((now - start)) -gt 900 ]]; then
-          echo "Timeout while waiting for master IP visibility"
+          echo "Timeout while waiting for server IP visibility"
           exit 2
         fi
         if gcloud compute addresses describe "$1" --project "${PROJECT}" --region "${REGION}" >/dev/null 2>&1; then
           break
         fi
-        echo "Master IP not visible yet. Waiting..."
+        echo "server IP not visible yet. Waiting..."
         sleep 5
       done
       break
@@ -407,28 +311,17 @@ function create-static-ip() {
 # Instantiate resource management service
 #
 
-function service-up() {
+function grs-up() {
   ensure-temp-dir
   detect-project
-    #check-existing
   create-network
-    #create-subnetworks
-    #detect-subnetworks
-    #create-cloud-nat-router
-    #write-cluster-location
-    #write-cluster-name
-    #create-autoscaler-config
-    #create-server
-    create-resourcemanagement-server
-    #create-nodes-firewall
-    create-region-simulator
-    #create-nodes-template
-    #create-linux-nodes
+  create-resourcemanagement-server
+  create-region-simulator
 }
 
 # tear done resource management service
 
-function service-down() {
+function grs-down() {
   detect-project
 
   echo "Bringing down resource management service"
@@ -463,7 +356,6 @@ function service-down() {
     --filter="name ~ '$(get-replica-name-regexp)'" \
     --format "value(zone)" | wc -l)
 
-  # In the replicated scenario, if there's only a single master left, we should also delete load balancer in front of it.
   if [[ "${REMAINING_SERVER_COUNT}" -ge 1 ]]; then
     local instance_names=$(get-all-replica-names)
 
@@ -490,11 +382,7 @@ function service-down() {
     --filter="name ~ '$(get-replica-name-regexp)'" \
     --format "value(zone)" | wc -l)
 
-  # If there are no more remaining master replicas, we should delete all remaining network resources.
-  if [[ "${REMAINING_SERVER_COUNT}" -eq 0 ]]; then
-    # Delete firewall rule for the srevice.
-    # delete-firewall-rules "${MASTER_NAME}-https" "${MASTER_NAME}-etcd" "${NODE_TAG}-all" "${MASTER_NAME}-konnectivity-server"
-    
+  if [[ "${REMAINING_SERVER_COUNT}" -eq 0 ]]; then    
     # Delete the server's reserved IP
     if gcloud compute addresses describe "${SERVER_NAME}-ip" --region "${REGION}" --project "${PROJECT}" &>/dev/null; then
       echo "Deleting the server's reserved IP"
@@ -519,19 +407,10 @@ function service-down() {
   set -e
 }
 
-# Prints regexp for full master machine name. In a cluster with replicated master,
-# VM names may either be MASTER_NAME or MASTER_NAME with a suffix for a replica.
 function get-replica-name-regexp() {
   echo "^${SERVER_NAME}(-...)?"
 }
 
-# Prints comma-separated names of all of the master replicas in all zones.
-#
-# Assumed vars:
-#   PROJECT
-#   MASTER_NAME
-#
-# NOTE: Must be in sync with get-replica-name-regexp and set-replica-name.
 function get-all-replica-names() {
   echo $(gcloud compute instances list \
     --project "${PROJECT}" \
@@ -553,18 +432,15 @@ function get-template() {
 function create-resourcemanagement-server() {
   echo "Starting rersource management server"
   
-  # We have to make sure the disk is created before creating the master VM, so
+  # We have to make sure the disk is created before creating the server VM, so
   # run this in the foreground.
-
-  echo "Debugging: gcloud compute disks create ${SERVER_NAME}-pd --project ${PROJECT} --zone ${ZONE} --type ${SERVER_DISK_TYPE} --size ${SERVER_DISK_SIZE}"
   gcloud compute disks create "${SERVER_NAME}-pd" \
     --project "${PROJECT}" \
     --zone "${ZONE}" \
     --type "${SERVER_DISK_TYPE}" \
     --size "${SERVER_DISK_SIZE}"
 
-  # Reserve the master's IP so that it can later be transferred to another VM
-  # without disrupting the kubelets.
+  # Reserve the server's IP so that it can later be transferred to another VM
   create-static-ip "${SERVER_NAME}-ip" "${REGION}"
   SERVER_RESERVED_IP=$(gcloud compute addresses describe "${SERVER_NAME}-ip" \
     --project "${PROJECT}" --region "${REGION}" -q --format='value(address)')
@@ -590,7 +466,6 @@ function yaml-quote {
 }
 
 function write-server-env {
-  echo "Debugging: write-server-env"
   build-server-env "server" "${SERVICE_TEMP}/server-env.yaml"
 }
 
@@ -602,7 +477,6 @@ function build-server-env {
   local server="$1"
   local file="$2"
 
-  echo "Debugging: build-server-env! $file"
   rm -f ${file}
   cat >$file <<EOF
 INSTANCE_PREFIX:  $(yaml-quote ${INSTANCE_PREFIX:-})

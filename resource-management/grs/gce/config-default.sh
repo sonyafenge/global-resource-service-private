@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
 
 # gcloud multiplexing for shared GCE/GKE tests.
-KUBE_ROOT=$(dirname "${BASH_SOURCE}")/../../..
+GRS_ROOT=$(dirname "${BASH_SOURCE[0]}")/../..
 
 #Default GCE config
 GCLOUD=gcloud
-ZONE=${SERVICE_GCE_ZONE:-us-central1-b}
+ZONE=${GRS_GCE_ZONE:-us-central1-b}
 REGION=${ZONE%-*}
 RELEASE_REGION_FALLBACK=${RELEASE_REGION_FALLBACK:-false}
-REGIONAL_KUBE_ADDONS=${REGIONAL_KUBE_ADDONS:-true}
 
-NETWORK=${SERVER_GCE_NETWORK:-default}
+NETWORK=${GRS_GCE_NETWORK:-default}
 CREATE_CUSTOM_NETWORK=${CREATE_CUSTOM_NETWORK:-false}
 # Enable network deletion by default, unless we're using 'default' network.
 if [[ "${NETWORK}" == "default" ]]; then
-  SERVER_DELETE_NETWORK=${SERVER_DELETE_NETWORK:-false}
+  GRS_DELETE_NETWORK=${GRS_DELETE_NETWORK:-false}
 else
-  SERVER_DELETE_NETWORK=${SERVER_DELETE_NETWORK:-true}
+  GRS_DELETE_NETWORK=${GRS_DELETE_NETWORK:-true}
 fi
 if [[ "${CREATE_CUSTOM_NETWORK}" == true ]]; then
   SUBNETWORK="${SUBNETWORK:-${NETWORK}-custom-subnet}"
@@ -26,7 +25,7 @@ fi
 #common config
 GOLANG_VERSION=${GOLANG_VERSION:-"1.17.11"}
 REDIS_VERSION=${REDIS_VERSION:-"6:7.0.0-1rl1~focal1"}
-INSTANCE_PREFIX="${SERVER_INSTANCE_PREFIX:-grs}"
+INSTANCE_PREFIX="${GRS_INSTANCE_PREFIX:-grs}"
 SERVER_NAME="${INSTANCE_PREFIX}-server"
 SIM_INSTANCE_PREFIX="${INSTANCE_PREFIX}-sim"
 GCI_VERSION="ubuntu-2004-focal-v20220701"
@@ -59,5 +58,6 @@ SERVER_LOG_LEVEL=${SERVER_LOG_LEVEL:-"--v=2"}
 GCE_SERVER_PROJECT=${GCE_PROJECT:-"ubuntu-os-cloud"}
 GCE_SERVER_IMAGE=${GCE_IMAGE:-"ubuntu-2004-focal-v20220701"}
 SERVER_TAG="${INSTANCE_PREFIX}-server"
+RESOURCE_URLS=${RESOURCE_URLS:-}
 
   

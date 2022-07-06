@@ -237,7 +237,7 @@ GIT_REPO="${SERVER_HOME}/go/src"
 #ensure-container-runtime
 # validate or install python
 validate-python
-# download and source kube-env
+# download and source server-env
 download-server-env
 source "${SERVER_HOME}/server-env"
 

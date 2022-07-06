@@ -5,13 +5,13 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SERVICE_ROOT=$(dirname "${BASH_SOURCE[0]}")/../..
+GRS_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 
-if [ -f "${SERVICE_ROOT}/test/service/env.sh" ]; then
-    source "${SERVICE_ROOT}/test/service/env.sh"
+if [ -f "${GRS_ROOT}/grs/env.sh" ]; then
+    source "${GRS_ROOT}/grs/env.sh"
 fi
 
-source "${SERVICE_ROOT}/test/service/util.sh"
+source "${GRS_ROOT}/grs/grs-util.sh"
 
 if [ -z "${ZONE-}" ]; then
   echo "... Starting cluster using provider: ${CLOUD_PROVIDER}" >&2
@@ -22,8 +22,8 @@ fi
 echo "... calling verify-prereqs" >&2
 verify-prereqs
 
-echo "... calling service-up" >&2
-service-up
+echo "... calling grs-up" >&2
+grs-up
 
 echo -e "Done, resource management service is running!\n" >&2
 

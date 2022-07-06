@@ -34,10 +34,9 @@ function create-server-instance-internal() {
     "${address:-}" "${ENABLE_IP_ALIASES:-}" "${IP_ALIAS_SIZE:-}")
 
   local metadata="server-env=${SERVICE_TEMP}/server-env.yaml"
-  metadata="${metadata},user-data=${SERVICE_ROOT}/test/service/gce/server.yaml"
-  metadata="${metadata},configure-sh=${SERVICE_ROOT}/test/service/gce/configure.sh"
-  #metadata="${metadata},${MASTER_EXTRA_METADATA}"
-
+  metadata="${metadata},user-data=${GRS_ROOT}/grs/gce/server.yaml"
+  metadata="${metadata},configure-sh=${GRS_ROOT}/grs/gce/configure.sh"
+  
   local disk="name=${server_name}-pd"
   disk="${disk},device-name=server-pd"
   disk="${disk},mode=rw"
@@ -45,7 +44,6 @@ function create-server-instance-internal() {
   disk="${disk},auto-delete=no"
 
   for attempt in $(seq 1 ${retries}); do
-    echo "gcloud compute instances create ${server_name} --project ${PROJECT} --zone ${ZONE} --machine-type ${SERVER_SIZE} --image-project=${GCE_SERVER_PROJECT}  --image ${GCE_SERVER_IMAGE} --tags ${SERVER_TAG} --scopes storage-ro,compute-rw,monitoring,logging-write --disk ${disk} --boot-disk-size ${SERVER_ROOT_DISK_SIZE} ${network}"
     if result=$(${gcloud} compute instances create "${server_name}" \
       --project "${PROJECT}" \
       --zone "${ZONE}" \

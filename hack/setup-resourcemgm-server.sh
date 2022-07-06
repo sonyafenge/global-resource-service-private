@@ -25,4 +25,4 @@ source ~/.bash_profile
 
 echo "Done."
 echo "Please run and add 'export PATH=\$PATH:/usr/local/go/bin' into your shell profile."
-echo "You can proceed to run service-up.sh if you want to start resource management service."
+echo "You can proceed to run ./grs/grs-up.sh if you want to start resource management service."
