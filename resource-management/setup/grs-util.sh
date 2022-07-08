@@ -8,7 +8,7 @@ CLOUD_PROVIDER="${CLOUD_PROVIDER:-gce}"
 # this is a list of the _names_ of the variables, not the value of the
 # variables.
 
-PROVIDER_UTILS="${GRS_ROOT}/grs/${CLOUD_PROVIDER}/util.sh"
+PROVIDER_UTILS="${GRS_ROOT}/setup/${CLOUD_PROVIDER}/util.sh"
 if [ -f "${PROVIDER_UTILS}" ]; then
     source "${PROVIDER_UTILS}"
 fi

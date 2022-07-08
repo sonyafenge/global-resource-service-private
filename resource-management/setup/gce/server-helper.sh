@@ -34,8 +34,8 @@ function create-server-instance-internal() {
     "${address:-}" "${ENABLE_IP_ALIASES:-}" "${IP_ALIAS_SIZE:-}")
 
   local metadata="server-env=${SERVICE_TEMP}/server-env.yaml"
-  metadata="${metadata},user-data=${GRS_ROOT}/grs/gce/server.yaml"
-  metadata="${metadata},configure-sh=${GRS_ROOT}/grs/gce/configure.sh"
+  metadata="${metadata},user-data=${GRS_ROOT}/setup/gce/server.yaml"
+  metadata="${metadata},configure-sh=${GRS_ROOT}/setup/gce/configure.sh"
   
   local disk="name=${server_name}-pd"
   disk="${disk},device-name=server-pd"

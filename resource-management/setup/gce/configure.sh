@@ -246,4 +246,7 @@ setup-server-env
 
 #gitclone-project
 
+##TODO: add build to build cmd bin to avoid go run and git clone.
+##TODO: add "too many open files" configuration
+
 echo "Done for installing resource management server files, Please run and add 'export PATH=\$PATH:/usr/local/go/bin' into your shell profile."

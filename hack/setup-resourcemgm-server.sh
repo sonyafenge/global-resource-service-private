@@ -20,9 +20,9 @@ sudo apt-get -y install jq
 echo "Install golang."
 wget https://dl.google.com/go/go${GOLANG_VERSION}.linux-amd64.tar.gz -P /tmp
 sudo tar -C /usr/local -xzf /tmp/go${GOLANG_VERSION}.linux-amd64.tar.gz
-echo 'export PATH=/usr/local/bin:$PATH' >>~/.bash_profile
+echo 'export PATH=/usr/local/go/bin:$PATH' >>~/.bash_profile
 source ~/.bash_profile
 
 echo "Done."
 echo "Please run and add 'export PATH=\$PATH:/usr/local/go/bin' into your shell profile."
-echo "You can proceed to run ./grs/grs-up.sh if you want to start resource management service."
+echo "You can proceed to run ./setup/grs-up.sh if you want to start resource management service."

@@ -7,11 +7,11 @@ set -o pipefail
 
 GRS_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 
-if [ -f "${GRS_ROOT}/grs/env.sh" ]; then
-    source "${GRS_ROOT}/grs/env.sh"
+if [ -f "${GRS_ROOT}/setup/env.sh" ]; then
+    source "${GRS_ROOT}/setup/env.sh"
 fi
 
-source "${GRS_ROOT}/grs/grs-util.sh"
+source "${GRS_ROOT}/setup/grs-util.sh"
 
 echo "Bring down service using provider: ${CLOUD_PROVIDER}" >&2
 

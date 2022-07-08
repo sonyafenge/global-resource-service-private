@@ -8,9 +8,9 @@
 GRS_ROOT=$(dirname "${BASH_SOURCE[0]}")/../..
 
 
-source "${GRS_ROOT}/grs/gce/${GRS_CONFIG_FILE-"config-default.sh"}"
+source "${GRS_ROOT}/setup/gce/${GRS_CONFIG_FILE-"config-default.sh"}"
 
-source "${GRS_ROOT}/grs/gce/server-helper.sh"
+source "${GRS_ROOT}/setup/gce/server-helper.sh"
 
 # These prefixes must not be prefixes of each other, so that they can be used to
 # detect mutually exclusive sets of nodes.
