@@ -135,8 +135,8 @@ if [ ${SIM_NUM} -gt 0 ]; then
         fi
 fi
 
-echo "Waiting 60 seconds to get simulator running"
-sleep 60
+echo "Waiting 10 seconds to get simulator running"
+sleep 10
 
 if [ ${CLIENT_NUM} -gt 0 ]; then
         if [[ "${SERVICE_URL}" != "" ]]; then
@@ -173,3 +173,5 @@ if [ ${CLIENT_NUM} -gt 0 ]; then
                 echo "Failed to start scheduler service, Please ensure SERVICE_URL: ${SERVICE_URL} is correct"
         fi
 fi
+
+echo "Testing is running now, Please remember to run ./hack/test-logcollect.sh to collect logs once testing finished"

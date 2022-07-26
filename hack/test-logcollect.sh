@@ -102,7 +102,7 @@ fi
 
 echo "Copying logs to destination instance."
 copy-logs "${DES_LOG_INSTANCE}" "${DES_LOG_INSTANCE_ZONE}" "${DESTINATION}" "${DES_LOG_DIR}"
-echo "Removing local copy."
+echo "Removing local copy from ${DESTINATION}"
 sudo rm -r "${DESTINATION}"
 
 
