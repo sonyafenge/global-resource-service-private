@@ -12,7 +12,7 @@ mkdir -p ${DESTINATION}/csv
 
 csv_name="result.csv"
 if [ "${COLLECTDATE}" != "" ]; then
-  csv_name="result.csv.${COLLECTDATE}"
+  csv_name="result.${COLLECTDATE}.csv"
 fi
 
 
