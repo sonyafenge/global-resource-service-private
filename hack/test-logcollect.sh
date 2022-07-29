@@ -56,7 +56,7 @@ function copy-logs {
 IFS=','; INSTANCE_SERVER_ZONE=($SERVER_ZONE); unset IFS;
 IFS=','; INSTANCE_SIM_ZONE=($SIM_ZONE); unset IFS;
 IFS=','; INSTANCE_CLIENT_ZONE=($CLIENT_ZONE); unset IFS;
-COLLECTDATE="$(date +"%m%d%y-%H%M%S")"
+export COLLECTDATE="$(date +"%m%d%y-%H%M%S")"
 export DESTINATION="${DES_LOG_DIR}/${COLLECTDATE}"
 if [ ${SERVER_NUM} -gt 0 ]; then
         echo "Collecting logs from ${#INSTANCE_SERVER_ZONE[@]} server machines: "

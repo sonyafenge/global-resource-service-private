@@ -10,6 +10,12 @@ if [ "${DESTINATION}" == "" ]; then
 fi
 mkdir -p ${DESTINATION}/csv
 
+csv_name="result.csv"
+if [ "${COLLECTDATE}" != "" ]; then
+  csv_name="result.csv.${COLLECTDATE}"
+fi
+
+
 function grep-string {
   local file_name="$1"
   local start_string="$2"
@@ -27,7 +33,7 @@ function grep-string {
 cd ${DESTINATION}
 
 echo "Collecting scheduler test summary to csv"
-echo "file name","RegisterClientDuration","ListDuration","Number of nodes listed","Watch session last","Number of nodes Added","Updated","Deleted","watch prolonged than 1s","Watch perc50","Watch perc90","Watch perc99">> ./csv/test.csv
+echo "file name","RegisterClientDuration","ListDuration","Number of nodes listed","Watch session last","Number of nodes Added","Updated","Deleted","watch prolonged than 1s","Watch perc50","Watch perc90","Watch perc99">> ./csv/${csv_name}
 for name in $( ls | grep client);do
   start_string="RegisterClientDuration: "
   end_string=""
@@ -73,46 +79,46 @@ for name in $( ls | grep client);do
   end_string=". Total"
   watch_perc99=$(grep-string "${name}" "${start_string}" "${end_string}")
 
-  echo "${name}","${register_client_duration}","${list_duration}","${nodes_listed}","${watch_session_last}","${number_nodes_added}","${number_nodes_updated}","${number_nodes_deleted}","${watch_prolonged_than1s}","${watch_perc50}","${watch_perc90}","${watch_perc99}" >> ./csv/test.csv
+  echo "${name}","${register_client_duration}","${list_duration}","${nodes_listed}","${watch_session_last}","${number_nodes_added}","${number_nodes_updated}","${number_nodes_deleted}","${watch_prolonged_than1s}","${watch_perc50}","${watch_perc90}","${watch_perc99}" >> ./csv/${csv_name}
 done
 
 ###adding empty line to csv
-echo "" >> ./csv/test.csv
-echo "" >> ./csv/test.csv
-echo "" >> ./csv/test.csv
-echo "" >> ./csv/test.csv
+echo "" >> ./csv/${csv_name}
+echo "" >> ./csv/${csv_name}
+echo "" >> ./csv/${csv_name}
+echo "" >> ./csv/${csv_name}
 
 
 echo "Collecting service test summary to csv"
 
 for name in $( ls | grep server);do
 
-  grep "\[Metrics\]\[AGG_RECEIVED\]" ${name} >> ./csv/test.csv
+  grep "\[Metrics\]\[AGG_RECEIVED\]" ${name} >> ./csv/${csv_name}
   
   ###adding empty line to csv
-  echo "" >> ./csv/test.csv
-  echo "" >> ./csv/test.csv
-  grep "\[Metrics\]\[DIS_RECEIVED\]" ${name} >> ./csv/test.csv
+  echo "" >> ./csv/${csv_name}
+  echo "" >> ./csv/${csv_name}
+  grep "\[Metrics\]\[DIS_RECEIVED\]" ${name} >> ./csv/${csv_name}
   
   ###adding empty line to csv
-  echo "" >> ./csv/test.csv
-  echo "" >> ./csv/test.csv
-  grep "\[Metrics\]\[DIS_SENDING\]" ${name} >> ./csv/test.csv
+  echo "" >> ./csv/${csv_name}
+  echo "" >> ./csv/${csv_name}
+  grep "\[Metrics\]\[DIS_SENDING\]" ${name} >> ./csv/${csv_name}
 
   ###adding empty line to csv
-  echo "" >> ./csv/test.csv
-  echo "" >> ./csv/test.csv
-  grep "\[Metrics\]\[DIS_SENT\]" ${name} >> ./csv/test.csv
+  echo "" >> ./csv/${csv_name}
+  echo "" >> ./csv/${csv_name}
+  grep "\[Metrics\]\[DIS_SENT\]" ${name} >> ./csv/${csv_name}
 
   ###adding empty line to csv
-  echo "" >> ./csv/test.csv
-  echo "" >> ./csv/test.csv
-  grep "\[Metrics\]\[SER_ENCODED\]" ${name} >> ./csv/test.csv
+  echo "" >> ./csv/${csv_name}
+  echo "" >> ./csv/${csv_name}
+  grep "\[Metrics\]\[SER_ENCODED\]" ${name} >> ./csv/${csv_name}
 
   ###adding empty line to csv
-  echo "" >> ./csv/test.csv
-  echo "" >> ./csv/test.csv
-  grep "\[Metrics\]\[SER_SENT\]" ${name} >> ./csv/test.csv
+  echo "" >> ./csv/${csv_name}
+  echo "" >> ./csv/${csv_name}
+  grep "\[Metrics\]\[SER_SENT\]" ${name} >> ./csv/${csv_name}
 done
 
-echo "Please check generated csv report under ./csv/test.csv"
+echo "Please check generated csv report under ./csv/${csv_name}"
