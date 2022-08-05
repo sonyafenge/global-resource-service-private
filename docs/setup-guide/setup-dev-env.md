@@ -1,4 +1,5 @@
 ## Set up developer environment
+Recommended dev machine configuration: ubuntu 20.04, 8 cpu or above, disk size 100GB or up.
  
 ### Clone repo
 ```
