@@ -44,8 +44,7 @@ Here is how you get started.
 
 ### Find a good first topic
 
-There are multiple repositories ([Global-Resource-Service](https://github.com/CentaurusInfra/global-resource-service), [Arktos](https://github.com/CentaurusInfra/arktos)) within the CentaurusInfra organization.
-Each repository has beginner-friendly issues that provide a good starting point.
+Here is the repositories ([Global-Resource-Service](https://github.com/CentaurusInfra/global-resource-service), which has beginner-friendly issues that provide a good starting point.
 For example, [Global-Resource-Service](https://github.com/CentaurusInfra/global-resource-service) has [help wanted](https://github.com/CentaurusInfra/global-resource-service/labels/help%20wanted) and [good first issue](https://github.com/CentaurusInfra/global-resource-service/labels/good%20first%20issue) labels for issues that should not need deep knowledge of the system. We can help new contributors who wish to work on such issues.
 
 
