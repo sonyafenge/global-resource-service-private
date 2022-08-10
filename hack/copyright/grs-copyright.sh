@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright 2022 Authors of Globle Resource Service.
+# Copyright 2022 Authors of Global Resource Service.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ fi
 
 display_usage() {
     echo "Usage: $0 <optional-grs-repo-path> <optional-log-directory>"
-    echo "       If optional globle-resource-service repo path is provided, repo setup step will be skipped"
+    echo "       If optional global-resource-service repo path is provided, repo setup step will be skipped"
 }
 
 if [ ! -z $2 ]
